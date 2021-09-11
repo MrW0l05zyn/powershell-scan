@@ -16,7 +16,7 @@
 .EXAMPLE
     .\powershellScan.ps1 -Networks 10.0.0
 .EXAMPLE    
-    .\powershellScan.ps1 -Networks 10.0.0, 192.168.0 -OnlyHostUp    
+    .\powershellScan.ps1 -Networks 10.0.0, 172.16.0, 192.168.0 -OnlyHostUp    
 .NOTES
     - Author  : MrW0l05zyn
     - Date    : September 11, 2021
