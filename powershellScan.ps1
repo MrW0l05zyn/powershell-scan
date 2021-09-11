@@ -24,6 +24,7 @@
 .LINK
     https://github.com/MrW0l05zyn/powershell-scan
 #>
+
 Param (      
     [Parameter()]  
     [string[]] $Networks = @("10.0.0","172.16.0","192.168.0"),
@@ -32,7 +33,7 @@ Param (
 )
 
 # variables
-$range = 1..254
+$range = 1..5
 $ping = new-object System.Net.NetworkInformation.Ping
 [int] $hostCountNetworkUp = 0
 [int] $hostCountNetworkDown = 0
@@ -67,13 +68,8 @@ Foreach ($network in $Networks){
             Write-Host ("`t[-] Total hosts up: {0}" -f $hostCountNetworkUp)
         }
     } else {
-        if ($hostCountNetworkUp -gt 0) {
-            Write-Host ("`n`t[-] Total hosts up: {0}" -f $hostCountNetworkUp)
-            Write-Host ("`t[-] Total hosts down: {0}" -f $hostCountNetworkDown)
-        } else {
-            Write-Host ("`n`t[-] Total hosts up: {0}" -f $hostCountNetworkUp)
-            Write-Host ("`t[-] Total hosts down: {0}" -f $hostCountNetworkDown)
-        }        
+        Write-Host ("`n`t[-] Total hosts up: {0}" -f $hostCountNetworkUp)
+        Write-Host ("`t[-] Total hosts down: {0}" -f $hostCountNetworkDown)
     }
     $hostCountNetworkUp = 0
     $hostCountNetworkDown = 0
