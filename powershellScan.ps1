@@ -20,7 +20,7 @@
 .NOTES
     - Author  : MrW0l05zyn
     - Date    : September 11, 2021
-    - Version : 0.2
+    - Version : 0.1
 .LINK
     https://github.com/MrW0l05zyn/powershell-scan
 #>
