@@ -32,7 +32,7 @@ Param (
 )
 
 # variables
-$range = 1..5
+$range = 1..254
 $ping = new-object System.Net.NetworkInformation.Ping
 [int] $hostCountNetworkUp = 0
 [int] $hostCountNetworkDown = 0
