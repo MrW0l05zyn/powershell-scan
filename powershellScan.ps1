@@ -2,21 +2,29 @@
 .SYNOPSIS
     PowerShell Scan
 .DESCRIPTION
-    PowerShell tool that performs host discovery via "ping sweep" and performs TCP port scanning. Utility focused on the post-exploitation phase (pillaging / data harvesting).
+    PowerShell tool that performs host discovery via "ping sweep" and performs TCP port scanning.
+.PARAMETER TypeScan
+    Specifies the type of scan: PingSweep or PortScan.
 .PARAMETER Networks
     Specifies the networks, example: 10.0.0, 172.16.0, 192.168.0
-.PARAMETER Timeout
-    Specifies the timeout (milliseconds)
-.PARAMETER OnlyHostUp
-    Show only active hosts
-.INPUTS
-.OUTPUTS
+.PARAMETER Targets
+    Specifies the targets to scan, example: 10.0.0.1, 10.0.0.2, 10.0.0.3    
+.PARAMETER Protocol
+    Specifies the name of the port scan protocol: TCP or UDP.    
+.PARAMETER Ports
+    Specifies the port numbers.
+.PARAMETER TopPorts
+    Top ports: 10, 25, 50, 100, 1000, or All.
+.PARAMETER TimeOut
+    Specifies the timeout (milliseconds).
+.PARAMETER ShowOnlyHostUp
+    Show only active hosts.
+.PARAMETER ShowClosedPorts
+    Show closed ports.
 .EXAMPLE
-    .\powershellScan.ps1
+    .\powershellScan.ps1 -TypeScan PingSweep -Networks 10.0.0 [-TimeOut] [-ShowOnlyHostUp]
 .EXAMPLE
-    .\powershellScan.ps1 -Networks 10.0.0
-.EXAMPLE    
-    .\powershellScan.ps1 -Networks 10.0.0, 172.16.0, 192.168.0 -OnlyHostUp    
+    .\powershellScan.ps1 -TypeScan PortScan -Targets 10.0.0.1 [-Protocol] [-Ports] [-TopPorts] [-TimeOut] [-ShowClosedPorts]
 .NOTES
     - Author  : MrW0l05zyn
     - Date    : September 11, 2021
@@ -24,53 +32,168 @@
 .LINK
     https://github.com/MrW0l05zyn/powershell-scan
 #>
-
-Param (      
-    [Parameter()]  
-    [string[]] $Networks = @("10.0.0","172.16.0","192.168.0"),
-    [int] $Timeout = 1000,
-    [switch] $OnlyHostUp = $false
+Param (
+    [Parameter(Mandatory, HelpMessage="Specifies the type of scan: PingSweep or PortScan")]
+        [ValidateSet('PingSweep','PortScan')]
+        [string] $TypeScan,
+    [Parameter(HelpMessage="Specifies the networks, example: 10.0.0, 172.16.0, 192.168.0")]
+        [string[]] $Networks,
+    [Parameter(HelpMessage="Specifies the targets to scan, example: 10.0.0.1, 10.0.0.2, 10.0.0.3")]
+        [Alias("Target","h")]
+        [string[]] $Targets,
+    [Parameter(HelpMessage="Specifies the name of the port scan protocol: TCP or UDP.")]
+        [ValidateSet("TCP","UDP")]
+        [string] $Protocol = "TCP",        
+    [Parameter(HelpMessage="Specifies the port numbers.")]
+        [Alias("Port","p")]
+        [int[]] $Ports,
+    [Parameter(HelpMessage="Top ports: 10, 25, 50, 100, 1000, or All")]
+        [ValidateSet(10,25,50,100,1000,"All")]
+        [string] $TopPorts,
+    [Parameter(HelpMessage="Specifies the timeout (milliseconds).")]
+        [int] $TimeOut = 1000,
+    [Parameter(HelpMessage="Show only active hosts.")]
+        [switch] $ShowOnlyHostUp = $false,
+    [Parameter(HelpMessage="Show closed ports.")]
+        [switch] $ShowClosedPorts = $false
 )
 
-# variables
-$range = 1..254
-$ping = new-object System.Net.NetworkInformation.Ping
-[int] $hostCountNetworkUp = 0
-[int] $hostCountNetworkDown = 0
-
 # ping sweep
-Foreach ($network in $Networks){
-    Write-Host ("`n[+] Network: {0}.0/24`n" -f $network) -ForegroundColor Blue
-    Foreach ($i in $range) {
-        $ip =  $network+'.'+$i.ToString()        
-        $pResult = $ping.send($ip, $Timeout)        
-        if ($OnlyHostUp) {
-            if ($pResult.Status -eq "Success") {
-                Write-Host ("`t{0}" -f $ip)
-                $hostCountNetworkUp++
-            } else {
-                $hostCountNetworkDown++
-            }
-        } else {
-            if ($pResult.Status -eq "Success") {
-                Write-Host ("`t{0} - Host is up" -f $ip) -ForegroundColor Green
-                $hostCountNetworkUp++
-            } else {
-                Write-Host ("`t{0} - Host is down" -f $ip) -ForegroundColor Red
-                $hostCountNetworkDown++
-            }            
-        }                
-    }
-    if ($OnlyHostUp) {        
-        if ($hostCountNetworkUp -gt 0) {
-            Write-Host ("`n`t[-] Total hosts up: {0}" -f $hostCountNetworkUp)
-        } else {
-            Write-Host ("`t[-] Total hosts up: {0}" -f $hostCountNetworkUp)
+Function PingSweep {
+    Param (
+        [string[]] $networks,
+        [int] $timeOut,
+        [bool] $showOnlyHostUp
+    )
+
+    $rangeIPs = 1..254
+    $ping = New-Object System.Net.NetworkInformation.Ping
+    [int] $hostCountNetworkUp = 0
+
+    Foreach ($network in $networks) {
+        Write-Host ("`n[+] Network: {0}.0/24`n" -f $network) -ForegroundColor Blue
+        Foreach ($i in $rangeIPs) {
+            $ip =  $network+'.'+$i.ToString()        
+            $pResult = $ping.send($ip, $timeOut)        
+            If ($showOnlyHostUp) {
+                If ($pResult.Status -eq "Success") {
+                    Write-Host ("`t{0}" -f $ip)
+                    $hostCountNetworkUp++
+                }
+            } Else {
+                If ($pResult.Status -eq "Success") {
+                    Write-Host ("`t{0} - Host is up" -f $ip) -ForegroundColor Green
+                    $hostCountNetworkUp++
+                } Else {
+                    Write-Host ("`t{0} - Host is down" -f $ip) -ForegroundColor Red
+                }            
+            }                
         }
-    } else {
-        Write-Host ("`n`t[-] Total hosts up: {0}" -f $hostCountNetworkUp)
-        Write-Host ("`t[-] Total hosts down: {0}" -f $hostCountNetworkDown)
+        If ($showOnlyHostUp) {        
+            If ($hostCountNetworkUp -gt 0) {
+                Write-Host ("`n`t[-] Total hosts up: {0}" -f $hostCountNetworkUp)
+            } Else {
+                Write-Host ("`t[-] Total hosts up: {0}" -f $hostCountNetworkUp)
+            }
+        } Else {
+            Write-Host ("`n`t[-] Total hosts up: {0}" -f $hostCountNetworkUp)
+            Write-Host ("`t[-] Total hosts down: {0}" -f ($rangeIPs.Count-$hostCountNetworkUp))
+        }
+        $hostCountNetworkUp = 0
+    }  
+}
+
+# port scan
+Function PortScan {
+    Param (
+        [string[]] $networks,
+        [string[]] $targets,
+        [string] $protocol,
+        [int[]] $ports,
+        [int] $timeOut,
+        [bool] $showClosedPorts
+    )
+
+    [int] $openPortsCount = 0
+
+    # TCP
+    If ($protocol -eq "TCP") {
+        # targets
+        Foreach ($target in $targets) {
+            Write-Host ("`n[+] Host: {0}`n" -f $target) -ForegroundColor Blue
+
+            Foreach ($port in $ports) {
+                $tcpClient = New-Object System.Net.Sockets.TcpClient
+                $connect = $tcpClient.BeginConnect($target, $port[0], $null, $null)        
+                $wait = $connect.AsyncWaitHandle.WaitOne($timeOut, $false)
+
+                #Timeout
+                If (!$wait) {
+                    If ($showClosedPorts) {  
+                        Write-Host ("`t{0}/TCP - Closed port" -f $port[0]) -ForegroundColor Red
+                    }
+                } Else {
+                    $error.clear()
+                    $tcpClient.EndConnect($connect) | out-Null
+                    
+                    # Error
+                    If ($Error[0]) {
+                        Write-Warning ("{0}" -f $error[0].Exception.Message)
+                    } Else {
+                        # Port open
+                        Write-Host ("`t{0}/TCP - Open port" -f $port[0]) -ForegroundColor Green
+                        $openPortsCount++
+                    }
+                }
+                $tcpClient.Close()
+            }
+            if ($openPortsCount -gt 0) {                
+                Write-Host ("`n`t[-] Total ports open: {0}" -f $openPortsCount)
+            } Else {            
+                Write-Host ("`t[-] Total ports open: {0}" -f $openPortsCount)
+            }   
+            Write-Host ("`t[-] Total ports scanned: {0}" -f $ports.Count)         
+            $openPortsCount = 0
+        }
+    } Else { 
+        #UDP
     }
-    $hostCountNetworkUp = 0
-    $hostCountNetworkDown = 0
+}
+
+# top ports
+Function TopPorts {
+    Param (
+        [string] $topPorts,
+        [string] $protocol
+    )
+    [int[]] $return = @()
+
+    If ($protocol -eq "TCP") {
+        $return = switch ($topPorts) {
+            10      {@(21,22,23,25,80,110,139,443,445,3389)}
+            25      {@(21,22,23,25,53,80,110,111,135,139,143,199,443,445,587,993,995,1025,1720,1723,3306,3389,5900,8080,8888)}
+            50      {@(21,22,23,25,26,53,80,81,110,111,113,135,139,143,179,199,443,445,465,514,515,548,554,587,646,993,995,1025,1026,1027,1433,1720,1723,2000,2001,3306,3389,5060,5666,5900,6001,8000,8008,8080,8443,8888,10000,32768,49152,49154)}
+            100     {@(7,9,13,21,22,23,25,26,37,53,79,80,81,88,106,110,111,113,119,135,139,143,144,179,199,389,427,443,444,445,465,513,514,515,543,544,548,554,587,631,646,873,990,993,995,1025,1026,1027,1028,1029,1110,1433,1720,1723,1755,1900,2000,2001,2049,2121,2717,3000,3128,3306,3389,3986,4899,5000,5009,5051,5060,5101,5190,5357,5432,5631,5666,5800,5900,6000,6001,6646,7070,8000,8008,8009,8080,8081,8443,8888,9100,9999,10000,32768,49152,49153,49154,49155,49156,49157)}
+            1000    {@(1,3,4,6,7,9,13,17,19,20,21,22,23,24,25,26,30,32,33,37,42,43,49,53,70,79,80,81,82,83,84,85,88,89,90,99,100,106,109,110,111,113,119,125,135,139,143,144,146,161,163,179,199,211,212,222,254,255,256,259,264,280,301,306,311,340,366,389,406,407,416,417,425,427,443,444,445,458,464,465,481,497,500,512,513,514,515,524,541,543,544,545,548,554,555,563,587,593,616,617,625,631,636,646,648,666,667,668,683,687,691,700,705,711,714,720,722,726,749,765,777,783,787,800,801,808,843,873,880,888,898,900,901,902,903,911,912,981,987,990,992,993,995,999,1000,1001,1002,1007,1009,1010,1011,1021,1022,1023,1024,1025,1026,1027,1028,1029,1030,1031,1032,1033,1034,1035,1036,1037,1038,1039,1040,1041,1042,1043,1044,1045,1046,1047,1048,1049,1050,1051,1052,1053,1054,1055,1056,1057,1058,1059,1060,1061,1062,1063,1064,1065,1066,1067,1068,1069,1070,1071,1072,1073,1074,1075,1076,1077,1078,1079,1080,1081,1082,1083,1084,1085,1086,1087,1088,1089,1090,1091,1092,1093,1094,1096,1097,1098,1099,1100,1104,1106,1107,1108,1110,1111,1112,1114,1117,1119,1122,1124,1131,1137,1138,1141,1145,1148,1151,1152,1163,1164,1165,1166,1169,1175,1183,1186,1199,1201,1218,1233,1234,1247,1248,1259,1271,1272,1287,1296,1310,1311,1334,1352,1417,1433,1434,1443,1455,1461,1494,1500,1501,1503,1521,1524,1533,1556,1580,1600,1666,1687,1700,1717,1718,1720,1723,1755,1761,1782,1783,1801,1812,1840,1862,1863,1864,1875,1900,1935,1947,1971,1984,1998,1999,2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,2013,2020,2021,2022,2030,2033,2034,2035,2038,2040,2041,2042,2043,2045,2046,2047,2048,2049,2065,2068,2100,2103,2105,2106,2107,2111,2119,2121,2126,2135,2144,2160,2161,2179,2190,2191,2222,2251,2260,2301,2323,2381,2383,2393,2394,2399,2401,2492,2500,2522,2525,2601,2602,2604,2605,2607,2608,2638,2701,2702,2710,2717,2718,2725,2809,2811,2869,2875,2909,2967,2998,3000,3001,3003,3005,3006,3011,3017,3030,3031,3052,3071,3077,3128,3168,3211,3221,3260,3261,3268,3269,3283,3300,3301,3304,3306,3307,3322,3323,3324,3325,3333,3351,3367,3369,3370,3371,3372,3389,3390,3404,3410,3476,3493,3514,3517,3527,3546,3551,3580,3659,3689,3690,3697,3703,3731,3737,3766,3784,3800,3801,3808,3809,3814,3820,3826,3827,3828,3849,3851,3852,3853,3859,3863,3869,3871,3872,3878,3880,3889,3905,3914,3916,3918,3920,3931,3944,3945,3963,3971,3981,3986,3995,3998,4000,4001,4002,4003,4004,4005,4006,4040,4045,4111,4125,4126,4129,4147,4164,4200,4224,4242,4252,4279,4321,4343,4430,4443,4444,4445,4446,4449,4550,4555,4567,4658,4662,4848,4899,4900,4949,4998,5000,5001,5002,5003,5004,5009,5030,5033,5050,5051,5054,5060,5061,5080,5081,5087,5100,5101,5102,5120,5190,5200,5214,5221,5222,5225,5226,5269,5280,5298,5353,5357,5405,5414,5431,5432,5440,5500,5510,5544,5550,5555,5560,5566,5631,5633,5666,5678,5679,5718,5730,5800,5801,5802,5810,5811,5815,5822,5825,5850,5859,5862,5877,5900,5901,5902,5903,5904,5906,5907,5910,5911,5915,5922,5925,5938,5950,5952,5959,5960,5961,5962,5963,5987,5988,5989,5998,5999,6000,6001,6002,6003,6004,6005,6006,6007,6009,6025,6051,6059,6060,6100,6101,6106,6112,6123,6129,6156,6346,6389,6481,6502,6510,6543,6547,6565,6566,6567,6580,6646,6666,6667,6668,6669,6689,6692,6699,6779,6788,6789,6792,6839,6881,6901,6969,7000,7001,7002,7004,7007,7019,7024,7025,7070,7100,7103,7106,7200,7201,7272,7278,7402,7435,7443,7496,7512,7625,7627,7676,7725,7741,7744,7777,7778,7800,7878,7900,7911,7913,7920,7921,7937,7938,7999,8000,8001,8002,8007,8008,8009,8010,8011,8019,8021,8022,8031,8042,8045,8080,8081,8082,8083,8084,8085,8086,8087,8088,8089,8090,8093,8097,8099,8100,8180,8181,8192,8193,8194,8200,8222,8254,8290,8291,8292,8300,8333,8383,8400,8402,8443,8500,8600,8649,8651,8652,8654,8686,8701,8765,8800,8873,8888,8899,8994,9000,9001,9002,9003,9009,9010,9011,9040,9050,9071,9080,9081,9090,9091,9099,9100,9101,9102,9103,9110,9111,9191,9200,9207,9220,9290,9415,9418,9443,9444,9485,9500,9502,9503,9535,9575,9593,9594,9595,9618,9666,9876,9877,9878,9898,9900,9917,9929,9943,9944,9968,9988,9998,9999,10000,10001,10002,10003,10004,10008,10009,10010,10012,10024,10025,10082,10160,10180,10215,10243,10566,10616,10617,10621,10626,10628,10629,10778,11110,11111,11967,12000,12174,12265,12345,13456,13722,13724,13782,13783,14000,14238,14441,14442,15000,15002,15003,15004,15660,15742,16000,16001,16012,16016,16018,16080,16113,16992,16993,17877,17988,18040,18101,18988,19101,19283,19315,19350,19780,19801,19842,20000,20005,20031,20221,20222,20828,21571,22939,23502,24444,24800,25734,25735,26214,27000,27352,27353,27355,27356,27715,28201,30000,30718,30951,31038,31337,32768,32769,32770,32771,32772,32773,32774,32775,32776,32777,32778,32779,32780,32781,32782,32783,32784,32785,33354,33899,34571,34572,34573,35500,38292,40000,40193,40911,41511,42510,44176,44442,44443,44501,45100,48080,49152,49153,49154,49155,49156,49157,49158,49159,49160,49161,49163,49165,49167,49175,49176,49400,49999,50000,50001,50002,50003,50006,50300,50389,50500,50636,50800,51103,51493,52673,52822,52848,52869,54045,54328,55055,55056,55555,55600,56737,56738,57294,57797,58080,60020,60443,61532,61900,62078,63331,64623,64680,65000,65129,65389)}
+            All     {@(1..65535)}
+            default {@(21,22,23,25,53,80,110,111,135,139,143,199,443,445,587,993,995,1025,1720,1723,3306,3389,5900,8080,8888)}
+        } 
+    } Else {
+        # UDP
+    }    
+    return $return
+}
+
+# tipo de escaneo
+switch ($TypeScan) {
+    PingSweep {
+        PingSweep -networks $Networks -timeOut $TimeOut -showOnlyHostUp $ShowOnlyHostUp
+    }
+    PortScan {
+        # top ports
+        if ($Ports.Count -eq 0) {            
+            $Ports = (TopPorts $TopPorts $Protocol)
+        }
+        PortScan -targets $Targets -protocol $Protocol -port $Ports -timeOut $TimeOut -showClosedPorts $ShowClosedPorts
+    }
 }
