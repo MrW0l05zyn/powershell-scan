@@ -4,10 +4,10 @@ Herramienta en PowerShell que efectúa descubrimiento de host via "ping sweep" y
 ## Uso
 ```powershell
 # Ping sweep
-powershellScan.ps1 -TypeScan PingSweep -Networks NETWORK [-TimeOut] [-ShowOnlyHostUp]
+powershellScan.ps1 -TypeScan PingSweep -Networks <NETWORK> [-TimeOut] [-ShowOnlyHostUp]
 
 # Port scan
-powershellScan.ps1 -TypeScan PortScan -Targets TARGET [-Protocol] [-Ports] [-TopPorts] [-TimeOut] [-ShowClosedPorts]
+powershellScan.ps1 -TypeScan PortScan -Targets <TARGET> [-Protocol] [-Ports] [-TopPorts] [-TimeOut] [-ShowClosedPorts]
 ```
 
 ## Ejemplos de utilización
